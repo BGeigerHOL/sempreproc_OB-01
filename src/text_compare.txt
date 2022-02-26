@@ -1,0 +1,14 @@
+0 [0mFour identical tyres shall be fitted on the test vehicle.[0m
+
+1 In the case of [96mC3[0m tyres with a load capacity index in excess of 121 and without any dual fitting indication, two of these tyres of the same type and range shall be fitted to the rear axle of the test vehicle; the front axle shall be fitted with tyres of size suitable for the axle load and planed down to the minimum depth in order to minimize the influence of tyre / road contact noise while maintaining a sufficient level of safety.
+
+2 [9m[31mWinter tyres that in certain Contracting Parties may be equipped with studs intended to enhance friction shall be tested without this equipment.[0m
+
+3 [96mIn the case of C2 tyres with a load capacity index lower or equal to 121, with a section width wider than 200 mm, an aspect ratio lower than 55, a rim diameter code lower than 15 and without any dual fitting indication, two of these tyres of the same type and range shall be fitted to the rear axle of the test vehicle; the front axle shall be fitted with tyres of a size suitable for the axle load and planed down to the minimum depth in order to minimize the influence of tyre/road contact noise while maintaining a sufficient level of safety.[0m
+
+4 [0mTyres with special fitting requirements shall be tested in accordance with these requirements (e.g. rotation direction).[0m
+
+5 [0mThe tyres shall have full tread depth before being run-in.[0m
+
+6 [0mTyres are to be tested on rims permitted by the tyre manufacturer.[0m
+
