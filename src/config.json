@@ -1,0 +1,15 @@
+{
+    "PartOf" : "textcompare by semafora systems",
+    "Version" : [0,4,0],
+    "masking" :[
+        {
+         "0" :["(?<=^\\s*\\d+)\\.[\\s\\t]+(?=[A-Za-z0-9])","$%DOT_ENUM_START%$",". "],
+         "1" :["(?<=\\d+)\\.(?=\\s[a-z0-9])","$%DOT%$","."],
+         "2" :["(?m),\\s*$","$%COMMA_END%$ .",","],
+         "3" :["(?m):\\s*$","$%COLON_END%$ .",":"],
+         "4" :["(?m);\\s*$","$%SEMICOLON_END%$ .",";"],
+         "5" :["(?m)^-","$%SDASH1_START%$","-"],
+         "6" :["(?m)^\u2014","$%SDASH1_START%$","\u2014"]
+        }
+    ]
+}
