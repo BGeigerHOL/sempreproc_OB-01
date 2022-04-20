@@ -49,6 +49,7 @@ parser.add_argument('f0', type=str)
 parser.add_argument('f1', type=str)
 args = parser.parse_args()
 
+
 if len(vars(args)) != 2:
     print('usage: textcompare file1 file2')
     exit(0)

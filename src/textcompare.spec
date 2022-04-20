@@ -24,6 +24,7 @@ for d in a.datas:
         print('***', d)
         a.datas.remove(d)
 
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
