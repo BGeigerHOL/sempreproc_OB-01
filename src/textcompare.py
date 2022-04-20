@@ -1,62 +1,76 @@
 #
 # Copyright 2021, 2022 Violono UG (haftungsbeschränkt), Dr. Bernd Geiger
 #
+#  pip freeze | %{$_.split('==')[0]} | %{pip install --upgrade $_}
+#
 import datetime
 
-#import en_core_web_lg
-
-if datetime.date(2022, 3, 31) < datetime.date.today():
+if datetime.date(2022, 6, 30) < datetime.date.today():
     print('texcompare.exe: demo period ended')
     exit(-1)
 
+import json
 import numpy as np
 import argparse
-import traceback
-import sys, types
-from typing import *
-import io
-import logging
-import datetime
+from ansi2html import Ansi2HTMLConverter
 import regex as re
 import spacy
+from spacy.tokens import Doc
 
-from datetime import date
-import sys
-import io
-from io import StringIO
-# import torch
-#from spacy.lang.char_classes import ALPHA, ALPHA_LOWER, ALPHA_UPPER
-#from spacy.lang.char_classes import CONCAT_QUOTES, LIST_ELLIPSES, LIST_ICONS
-#from spacy.util import compile_infix_regex
-#import os, sys, codecs
-#import logging
-#from datasets import set_caching_enabled
 
-#set_caching_enabled(True)
-# from spacy_language_detection import LanguageDetector
-#nlpEN =  en_core_web_lg.load()
+class WhitespaceTokenizer:
+    def __init__(self, vocab):
+        self.vocab = vocab
+
+    def __call__(self, text):
+        words = text.split(" ")
+        spaces = [True] * len(words)
+        # Avoid zero-length tokens
+        for i, word in enumerate(words):
+            if word == "":
+                words[i] = " "
+                spaces[i] = False
+        # Remove the final trailing space
+        if words[-1] == " ":
+            words = words[0:-1]
+            spaces = spaces[0:-1]
+        else:
+            spaces[-1] = False
+
+        return Doc(self.vocab, words=words, spaces=spaces)
+
 nlpEN = spacy.load('en_core_web_lg')
+
+nlpEN1 = spacy.blank("en")
+nlpEN1.tokenizer = WhitespaceTokenizer(nlpEN1.vocab)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('f0', type=str)
 parser.add_argument('f1', type=str)
 args = parser.parse_args()
 
-
-if len( vars(args) ) != 2:
+if len(vars(args)) != 2:
     print('usage: textcompare file1 file2')
+    exit(0)
 
 try:
     fi0 = open(args.f0, 'r', encoding='utf-8')
 except:
-    print('textcompare error: ', fi0, ' not found')
+    print('textcompare error: ', args.f0, ' not found')
     exit(-1)
 
 try:
     fi1 = open(args.f1, 'r', encoding='utf-8')
 except:
-    print('textcompare error: ', fi1, ' not found')
+    print('textcompare error: ', args.f1, ' not found')
     exit(-1)
+
+try:
+    fconfig  = open('config.json')
+except:
+    print('textcompare error: config.json  not found')
+    exit(-1)
+
 
 try:
     t0 = fi0.read()
@@ -73,16 +87,37 @@ except:
     exit(-1)
 
 
+try:
+    config = json.load(fconfig)
+    fconfig.close()
+except:
+    print('textcompare error: config.json cannot be read')
+    exit(-1)
+
+try:
+    configversion =  config["Version"]
+except:
+    print('cannot determine config file version')
+    exit(-1)
+
+if configversion[1] < 4:
+    print('wrong config file')
+    exit(-1)
+
+
 print("""
-*************************************************************************
-***                          text compare demo                        ***
-***                                                                   ***
-***                Copyright 2022,  semafora systems GmbH             ***
-*************************************************************************
+****************************************************************************
+***                       text compare demo (V0.6)                       ***
+***                                                                      ***
+***                Copyright 2022,  semafora systems GmbH                ***
+****************************************************************************
 """)
 
 
-#ferr = open('textcompare.err', 'a', encoding='utf-8')
+
+
+
+# ferr = open('textcompare.err', 'a', encoding='utf-8')
 
 
 class fstyle:
@@ -100,12 +135,15 @@ class fstyle:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+
 def GetFStyle(style):
     return f"{style}"
 
 
 def deltaWords(l0, l1):
-
+    if l0[0].strip() == ''  or l1[0].strip() == '':
+        print('textcompare.deltaWords: one comparing sentence is empty')
+        exit(-1)
 
     def normS(s):
         s = re.sub(r'(?<=[A-Za-z0-9])\s([\!\#\$\%\&\'\*\+\-\.,;\^\_\`\|\~\:])', r"\1", s)
@@ -120,13 +158,18 @@ def deltaWords(l0, l1):
 
         # remove smaller double backward associations
 
-        for i in range(len(l1)):
-            for j in range(i, len(l1)):
-                tmp = l1[i:j + 1]
-                for i1 in range(len(l0)):
-                    for j1 in range(i1, len(l0)):
-                        if tmp == l0[i1:j1 + 1]:
-                            seqT[i] = (tmp, i, j, i1, j1, 'i')
+        try:
+            for i in range(len(l1)):
+                for j in range(i, len(l1)):
+                    tmp = l1[i:j + 1]
+                    for i1 in range(len(l0)):
+                        for j1 in range(i1, len(l0)):
+                            if tmp == l0[i1:j1 + 1]:
+                                seqT[i] = (tmp, i, j, i1, j1, 'i')
+        except:
+            print('textcompare.deltaWords: failed')
+            exit(-1)
+
 
         seqT1 = seqT.copy()
         #        print(seq)
@@ -157,7 +200,7 @@ def deltaWords(l0, l1):
             try:
                 seq[i] = ([l1[i]], i, i, False, False, tag)
             except:
-                print("***error in dict gen after set difference")
+                print("textcompare.dictgen: failed")
                 exit(-1)
         #    print(l1S)
         seqD = {key: seq[key] for key in sorted(seq.keys())}  # sort the dict
@@ -167,14 +210,18 @@ def deltaWords(l0, l1):
         maxI = max(ind)
 
         seqD1 = {}
-        for i in range(len(ind)):  # add prev / next dict element info
-            tT = seqD[ind[i]]
-            if ind[i] == minI:
-                seqD1[ind[i]] = (*tT, [minI, ind[i + 1]])
-            elif ind[i] == maxI:
-                seqD1[ind[i]] = (*tT, [ind[i - 1], maxI])
-            else:
-                seqD1[ind[i]] = (*tT, [ind[i - 1], ind[i + 1]])
+        try:
+            for i in range(len(ind)):  # add prev / next dict element info
+                tT = seqD[ind[i]]
+                if ind[i] == minI:
+                    seqD1[ind[i]] = (*tT, [minI, ind[i + 1]])
+                elif ind[i] == maxI:
+                    seqD1[ind[i]] = (*tT, [ind[i - 1], maxI])
+                else:
+                    seqD1[ind[i]] = (*tT, [ind[i - 1], ind[i + 1]])
+        except:
+            print("textcompare.prev/nextentry: failed")
+            exit(-1)
 
         return seqD1, set(ind)
 
@@ -247,9 +294,9 @@ def deltaWords(l0, l1):
     for e in l3:
         try:
             if e[1] == 'n':
-                t += ' ' + GetFStyle(fstyle.BLUE) +e[0]+GetFStyle(fstyle.CLEAR)
+                t += ' ' + GetFStyle(fstyle.BLUE) + e[0] + GetFStyle(fstyle.CLEAR)
             elif e[1] == 'o':
-                t += ' ' + GetFStyle(fstyle.RED) + e[0]+GetFStyle(fstyle.CLEAR)
+                t += ' ' + GetFStyle(fstyle.RED) + e[0] + GetFStyle(fstyle.CLEAR)
             elif e[1] == 'i':
                 #                t += GetFStyle(fstyle.CLEAR) + ' ' + e[0]+GetFStyle(fstyle.CLEAR)
                 t += ' ' + e[0]
@@ -418,24 +465,28 @@ def eqlSL(sntL0, sntL1):
     return sntL0, sntL1, lt
 
 
-
-
-
 splitSent = True
 
-xxxt0 = """
+xt0 = """
 Four identical tyres shall be fitted on the test vehicle. In the case of tyres with a load capacity index in excess of 121 and without any dual fitting indication, two of these tyres of the same type and range shall be fitted to the rear axle of the test vehicle; the front axle shall be fitted with tyres of size suitable for the axle load and planed down to the minimum depth in order to minimize the influence of tyre/road contact noise while maintaining a sufficient level of safety. Winter tyres that in certain Contracting Parties may be equipped with studs intended to enhance friction shall be tested without this equipment. Tyres with special fitting requirements shall be tested in accordance with these requirements (e.g. rotation direction). The tyres shall have full tread depth before being run-in.
 Tyres are to be tested on rims permitted by the tyre manufacturer.
 """
 
 # 2.5.1.	General
 
-xxxt1 = """
-Four identical tyres shall be fitted on the test vehicle. In the case of C3 tyres with a load capacity index in excess of 121 and without any dual fitting indication, two of these tyres of the same type and range shall be fitted to the rear axle of the test vehicle; the front axle shall be fitted with tyres of size suitable for the axle load and planed down to the minimum depth in order to minimize the influence of tyre/road contact noise while maintaining a sufficient level of safety.
+xt1 = """
+Four identical tyres shall be fitted on the test vehicle. In the case of "C3" tyres with a load capacity index in excess of 121 and without any dual fitting indication, two of these tyres of the same type and range shall be fitted to the rear axle of the test vehicle; the front axle shall be fitted with tyres of size suitable for the axle load and planed down to the minimum depth in order to minimize the influence of tyre/road contact noise while maintaining a sufficient level of safety.
 In the case of C2 tyres with a load capacity index lower or equal to 121, with a section width wider than 200 mm, an aspect ratio lower than 55, a rim diameter code lower than 15 and without any dual fitting indication, two of these tyres of the same type and range shall be fitted to the rear axle of the test vehicle; the front axle shall be fitted with tyres of a size suitable for the axle load and planed down to the minimum depth in order to minimize the influence of tyre/road contact noise while maintaining a sufficient level of safety.
 Tyres with special fitting requirements shall be tested in accordance with these requirements (e.g. rotation direction). The tyres shall have full tread depth before being run-in.
 Tyres are to be tested on rims permitted by the tyre manufacturer.
 """
+
+
+maskdot = config['masking'][0]
+
+for k,v in maskdot.items():
+    t0 = re.sub(v[0],v[1],t0)
+    t1 = re.sub(v[0],v[1],t1)
 
 t0 = t0.replace('\n', ' ').strip()
 t1 = t1.replace('\n', ' ').strip()
@@ -444,6 +495,8 @@ t1 = t1.replace('\n', ' ').strip()
 
 doc0 = nlpEN(t0)
 doc1 = nlpEN(t1)
+doc01 = nlpEN1(t0)
+doc11 = nlpEN1(t1)
 
 # attach a newline at the end
 
@@ -455,17 +508,28 @@ doc1 = nlpEN(t1)
 sntL0 = list(map(lambda st: str(st), doc0.sents))
 sntL1 = list(map(lambda st: str(st), doc1.sents))
 
+for k,v in maskdot.items():
+    sntL0 = [w.replace(v[1], v[2]) for w in sntL0]
+    sntL1 = [w.replace(v[1], v[2]) for w in sntL1]
+
+
 sntL0, sntL1, lt = eqlSL(sntL0, sntL1)
 
 # Generated lists of tokenized words
 w0 = []
 w1 = []
-
+w01 = []
+w11 = []
 for e in sntL0:
     w0.append([token.orth_ for token in nlpEN.tokenizer(e)])
 for e in sntL1:
     w1.append([token.orth_ for token in nlpEN.tokenizer(e)])
 
+# for word analysis use simple white space tokenizer
+for e in sntL0:
+    w01.append([token.orth_ for token in nlpEN1.tokenizer(e)])
+for e in sntL1:
+    w11.append([token.orth_ for token in nlpEN1.tokenizer(e)])
 # check what
 
 
@@ -490,7 +554,7 @@ for i in range(lt):
     o = maxV[i]
     ind = indV[i]
     if not "".join(w0[i]).strip(): continue  # empty strings are not processed
-    if o <= 0.5:  # case indipendent single
+    if o <= 0.5:  # case independent single
         sentL.append([[w0[i]], -1, [i]])  # -1 stands for deleted
     elif o == 1.0:  # case identical
         indS.add(ind)  # add index of processed new sent into list
@@ -509,7 +573,7 @@ for i in range(lt):
                 indS.add(j)  # mark as processed
         sentL.append([[w0[i], w1[ind]], 0.5, [i, ind]])  # 0.5 stands for modified
     else:
-        print('not possible: ', o)
+        print('textcompare.sentence classification: failed - ', o)
         exit(-1)
 
 for j in range(lt):  # get leftovers in new sent
@@ -518,7 +582,7 @@ for j in range(lt):  # get leftovers in new sent
         sentL.append([[w1[j]], 1, [j]])  # 1 stands for new
         indS.add(j)  # mark as processed
 
-sentLT = []
+sentLT = [] # output text list
 try:
     for i, e in enumerate(sentL):
         t = ''
@@ -529,23 +593,33 @@ try:
             t = GetFStyle(fstyle.CLEAR) + sntL0[e[2][0]] + GetFStyle(fstyle.CLEAR)
             sentLT.append(t.strip() + '\n')
         elif e[1] == 0.5:
-            #            t = sntComp(w0[e[2][0]],w1[e[2][1]])
-            t = deltaWords(w0[i], w1[i])
-            # t = GetFStyle(fstyle.YELLOW) + sntL0[e[2][0]] + GetFStyle(fstyle.CLEAR) + GetFStyle(fstyle.GREEN) + sntL1[e[2][1]] + GetFStyle(fstyle.CLEAR)
+            #            t = sntComp(w0[e[2][0]],w1[e[2][1]]) # e[2][0] / e[2][0] -> index to the relevant sentence tok sequence
+            try:
+                t = deltaWords(w01[e[2][0]], w11[e[2][1]])
+            except:
+                print('textcompare: word analysis failed')
+                exit(-1)
+            #            t = GetFStyle(fstyle.YELLOW) + sntL0[e[2][0]] + GetFStyle(fstyle.CLEAR) + GetFStyle(fstyle.GREEN) + sntL1[e[2][1]] + GetFStyle(fstyle.CLEAR)
             sentLT.append(t.strip() + '\n')
         elif e[1] == 1:
             t = GetFStyle(fstyle.BLUE) + sntL1[e[2][0]] + GetFStyle(fstyle.CLEAR)
             sentLT.append(t.strip() + '\n')
 except:
-    print('coloring went wrong')
+    print('textcompare: sentence coloring failed')
     exit(-1)
 
-fout = open('text_compare.txt', 'w', encoding='ansi')
+fout0 = open('text_compare.txt', 'w', encoding='ansi')
+fout1 = open('text_compare.html', 'w', encoding='utf-8')
 
 
-
+conv = Ansi2HTMLConverter()
 for i, e in enumerate(sentLT):
-    print(i, e, file = fout)
-    print(i, e)
+    outStr =  GetFStyle(fstyle.YELLOW) + str(i)+ GetFStyle(fstyle.CLEAR) + ' ' + e
+    html = conv.convert(outStr)
+    print(outStr,file=fout0)
+    print(html, file=fout1)
 
-fout.close()
+    print(outStr)
+
+fout0.close()
+fout1.close()
